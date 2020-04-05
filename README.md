@@ -1,5 +1,7 @@
 # maze-game
 Giving a player a randomly generated maze to solve made with SDL2.
+
+![Preview](preview.png)
 ### Algorithms
 - Randomized Prim's Algorithm for maze generation
 ### Dependencies
