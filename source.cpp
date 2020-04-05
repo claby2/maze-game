@@ -1,5 +1,6 @@
 #include "C:/MinGW/include/SDL2/SDL.h"
 #include <iostream>
+#include <algorithm>
 #include <stdlib.h>
 #include <time.h>
 #include <stdio.h>
@@ -9,15 +10,16 @@
 const int SCREEN_HEIGHT = 1000;
 const int SCREEN_WIDTH = 1000;
 
-const int FRAME_RATE = 0;
+const int height = 50;
+const int width = 50;
 
-const int height = 30;
-const int width = 30;
+const int FRAME_RATE = std::min(height, width) * 10;
 
 const uint32_t WHITE = 0xffffffff;
 const uint32_t BLACK = 0xff000000;
 const uint32_t GREEN = 0xff00ff00;
 const uint32_t RED = 0xff0000ff;
+const uint32_t BLUE = 0xffff0000;
 
 int dx[] = {0, 0, 1, -1, 1, 1, -1, -1};
 int dy[] = {1, -1, 0, 0, 1, -1, 1, -1};
@@ -33,31 +35,27 @@ class Player {
         void handleEvent(SDL_Event& e, std::vector<uint32_t>& pixels) {
             if(e.type == SDL_KEYDOWN && e.key.repeat == 0) {
                 switch(e.key.keysym.sym){
-                    case SDLK_w: if(pixels[(y-1)*width + x] == WHITE || pixels[(y-1)*width + x] == GREEN) y -= 1; break;
-                    case SDLK_s: if(pixels[(y+1)*width + x] == WHITE || pixels[(y+1)*width + x] == GREEN) y += 1; break;
-                    case SDLK_a: if(pixels[y*width + x - 1] == WHITE || pixels[y*width + x - 1] == GREEN) x -= 1; break;
-                    case SDLK_d: if(pixels[y*width + x + 1] == WHITE || pixels[y*width + x + 1] == GREEN) x += 1; break;
+                    case SDLK_w: up = true; break;
+                    case SDLK_s: down = true; break;
+                    case SDLK_a: right = true; break;
+                    case SDLK_d: left = true; break;
+                } 
+            } else if (e.type == SDL_KEYUP) {
+                switch(e.key.keysym.sym){
+                    case SDLK_w: up = false; break;
+                    case SDLK_s: down = false; break;
+                    case SDLK_a: right = false; break;
+                    case SDLK_d: left = false; break;
                 } 
             }
-            // } else if(e.type = SDL_KEYUP && e.key.repeat == 0) {
-            //     switch(e.key.keysym.sym) {
-            //         case SDLK_w: up = false; break;
-            //         case SDLK_s: down = false; break;
-            //         case SDLK_a: left = false; break;
-            //         case SDLK_d: right = false;break;
-            //     }
-            // }
         }
 
-        // void move(std::vector<uint32_t>& pixels) {
-        //     if(pixels[(y-1)*width + x] != BLACK) y -= 1;
-
-        //     if(pixels[(y+1)*width + x] != BLACK) y += 1;
-
-        //     if(pixels[y*width + x - 1] != BLACK) x -= 1;
-
-        //     if(pixels[y*width + x + 1] != BLACK) x += 1;
-        // }
+        void move(std::vector<uint32_t>& pixels) {
+            if(pixels[(y-1)*width + x] != BLACK && y - 1 >= 0 && up) y -= 1;
+            if(pixels[(y+1)*width + x] != BLACK && y + 1 < height && down) y += 1;
+            if(pixels[y*width + x - 1] != BLACK && x - 1 >= 0 && right) x -= 1;
+            if(pixels[y*width + x + 1] != BLACK && x + 1 < width && left) x += 1;
+        }
 
 
         void render(std::vector<uint32_t>& pixels, std::vector<bool>& visited) {
@@ -149,7 +147,18 @@ void generateMaze(std::vector<uint32_t>& pixels, int sx, int sy) {
     }
 }
 
-
+void resetGame(std::vector<uint32_t>& pixels, std::vector<bool>& visited, Player& player) {
+    for(int i = 0; i < height; i++) {
+        for(int j = 0; j < width; j++) {
+            visited[i*width + j] = false;
+        }
+    }
+    visited[0] = true;
+    generateMaze(pixels, 0, 0);
+    pixels[(height-1)*width + width-1] = BLUE;
+    player.x = 0;
+    player.y = 0;
+}
 
 int main(int argc, char* args[]){
     srand((unsigned)time(NULL));
@@ -168,9 +177,9 @@ int main(int argc, char* args[]){
 
         std::vector<uint32_t> pixels(height*width, BLACK);
         std::vector<bool> visited(height*width, false);
-        visited[0] = true;
-        generateMaze(pixels, 0, 0);
         Player player;
+
+        resetGame(pixels, visited, player);
 
         SDL_Event e;
 
@@ -193,6 +202,11 @@ int main(int argc, char* args[]){
             SDL_UpdateTexture(gTexture, NULL, &pixels[0], width * sizeof(uint32_t));
             SDL_RenderClear(gRenderer);
             SDL_RenderCopy(gRenderer, gTexture, NULL, NULL);
+            frame++;
+            if(frame == FRAME_RATE) {
+                player.move(pixels);
+                frame = 0;
+            }
 
             for(int i = 0; i < height; i++) {
                 for(int j = 0; j < width; j++) {
@@ -200,6 +214,10 @@ int main(int argc, char* args[]){
                         pixels[i*width + j] = GREEN;
                     }
                 }
+            }
+
+            if(visited[(height-1)*width + (width-1)]) {
+                resetGame(pixels, visited, player);
             }
 
             player.render(pixels, visited);
